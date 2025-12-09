@@ -1,0 +1,115 @@
+-- ---------------------------------------------------------
+--  DATABASE : eventhub
+--  Struktur tabel lengkap untuk EventHub Web System
+-- ---------------------------------------------------------
+
+CREATE DATABASE IF NOT EXISTS eventhub;
+USE eventhub;
+
+-- ---------------------------------------------------------
+-- TABLE: users
+-- Untuk login admin dan anggota
+-- ---------------------------------------------------------
+CREATE TABLE users (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    email VARCHAR(150) NOT NULL UNIQUE,
+    password VARCHAR(255) NOT NULL,
+    role ENUM('admin','anggota') DEFAULT 'anggota',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Admin default (opsional)
+INSERT INTO users (name, email, password, role)
+VALUES (
+    'Administrator',
+    'admin@eventhub.com',
+    -- password: admin123
+    '$2y$10$3Xu1j0iCIvZ1DNYf/ItPquBXRpFRHfCOQu9t2m5Luwe13qZgi.FP.',
+    'admin'
+);
+
+
+-- ---------------------------------------------------------
+-- TABLE: events
+-- Semua data event yang dibuat admin
+-- ---------------------------------------------------------
+CREATE TABLE events (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    title VARCHAR(200) NOT NULL,
+    description TEXT,
+    tanggal DATE NOT NULL,
+    waktu TIME,
+    lokasi VARCHAR(200),
+    kuota INT DEFAULT 0,
+    kategori VARCHAR(100),
+    thumbnail VARCHAR(255),
+    created_by INT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (created_by) REFERENCES users(id)
+        ON DELETE SET NULL ON UPDATE CASCADE
+);
+
+
+-- ---------------------------------------------------------
+-- TABLE: event_registrations
+-- Penyimpanan pendaftar event (pending/approved/rejected)
+-- ---------------------------------------------------------
+CREATE TABLE event_registrations (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    event_id INT NOT NULL,
+    user_id INT NOT NULL,
+    status ENUM('pending','approved','rejected') DEFAULT 'pending',
+    registered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (event_id) REFERENCES events(id)
+        ON DELETE CASCADE ON UPDATE CASCADE,
+
+    FOREIGN KEY (user_id) REFERENCES users(id)
+        ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+-- Index tambahan agar pencarian cepat
+CREATE INDEX idx_event ON event_registrations(event_id);
+CREATE INDEX idx_user ON event_registrations(user_id);
+
+
+-- ---------------------------------------------------------
+-- TABLE: event_attendance (opsional)
+-- Jika nanti ingin fitur absensi QR code
+-- ---------------------------------------------------------
+CREATE TABLE event_attendance (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    registration_id INT NOT NULL,
+    hadir ENUM('ya','tidak') DEFAULT 'ya',
+    waktu_hadir TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (registration_id) REFERENCES event_registrations(id)
+        ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+
+-- ---------------------------------------------------------
+-- OPTIONAL: Dummy Data Event (boleh dihapus)
+-- ---------------------------------------------------------
+INSERT INTO events (title, description, tanggal, waktu, lokasi, kuota, kategori, created_by)
+VALUES
+('Pelatihan Dasar Kepemimpinan', 'Workshop pengembangan softskill mahasiswa.', '2025-01-28', '09:00', 'Aula Lantai 2', 100, 'Seminar', 1),
+('Workshop UI/UX Design', 'Pengenalan dasar desain UI/UX untuk pemula.', '2025-02-03', '13:00', 'Lab Komputer', 50, 'Workshop', 1);
+
+ALTER TABLE users
+    ADD COLUMN jenis_kelamin ENUM('L','P') NULL AFTER email,
+    ADD COLUMN tanggal_lahir DATE NULL AFTER jenis_kelamin,
+    ADD COLUMN foto_profil VARCHAR(255) NULL AFTER tanggal_lahir,
+    ADD COLUMN notif_email TINYINT(1) NOT NULL DEFAULT 1 AFTER foto_profil,
+    ADD COLUMN dark_mode TINYINT(1) NOT NULL DEFAULT 0 AFTER notif_email;
+
+CREATE TABLE IF NOT EXISTS login_logs (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    ip_address VARCHAR(45),
+    user_agent VARCHAR(255),
+    login_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
